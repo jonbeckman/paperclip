@@ -1,6 +1,8 @@
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git gosu \
+  && apt-get install -y --no-install-recommends ca-certificates curl git gosu locales \
+  && sed -i '/^# *en_US.UTF-8 UTF-8$/s/^# *//' /etc/locale.gen \
+  && locale-gen \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
@@ -40,6 +42,8 @@ RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/cod
   && chown node:node /paperclip
 
 ENV NODE_ENV=production \
+  LANG=en_US.UTF-8 \
+  LC_ALL=en_US.UTF-8 \
   HOME=/paperclip \
   HOST=0.0.0.0 \
   PORT=3100 \

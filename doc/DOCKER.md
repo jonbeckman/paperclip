@@ -93,6 +93,7 @@ Notes:
 - Without API keys, the app still runs normally.
 - Adapter environment checks in Paperclip will surface missing auth/CLI prerequisites.
 - The container entrypoint creates and `chown`s `PAPERCLIP_HOME` before starting the app, so mounted `/paperclip` volumes are writable by the `node` runtime user.
+- The image also generates `en_US.UTF-8`, which embedded PostgreSQL requires during `initdb`.
 
 ## Onboard Smoke Test (Ubuntu + npm only)
 
