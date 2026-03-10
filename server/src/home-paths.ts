@@ -21,24 +21,12 @@ export function resolvePaperclipHomeDir(): string {
     ? path.resolve(expandHomePrefix(envHome))
     : path.resolve(os.homedir(), ".paperclip");
 
-  if (isWritableDirectory(preferredHome)) {
-    resolvedHomeDirCache = preferredHome;
-    return preferredHome;
+  if (!isWritableDirectory(preferredHome)) {
+    throw new Error(`Paperclip home directory '${preferredHome}' is not writable.`);
   }
 
-  const fallbackHome = path.resolve(os.tmpdir(), "paperclip");
-  if (isWritableDirectory(fallbackHome)) {
-    console.warn(
-      `[paperclip] Home directory '${preferredHome}' is not writable; using fallback '${fallbackHome}'. ` +
-      "Set PAPERCLIP_HOME to a writable path to silence this warning.",
-    );
-    resolvedHomeDirCache = fallbackHome;
-    return fallbackHome;
-  }
-
-  throw new Error(
-    `Paperclip home directory '${preferredHome}' is not writable and fallback '${fallbackHome}' could not be created.`,
-  );
+  resolvedHomeDirCache = preferredHome;
+  return preferredHome;
 }
 
 function isWritableDirectory(dir: string): boolean {

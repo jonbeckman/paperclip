@@ -19,9 +19,8 @@ describe("resolvePaperclipHomeDir", () => {
     expect(homePaths.resolvePaperclipHomeDir()).toBe(path.resolve(os.homedir(), "paperclip-home"));
   });
 
-  it("falls back to os.tmpdir() when PAPERCLIP_HOME is not writable", async () => {
+  it("throws when PAPERCLIP_HOME is not writable", async () => {
     process.env.PAPERCLIP_HOME = "/paperclip";
-    const fallbackHome = path.resolve(os.tmpdir(), "paperclip");
 
     const originalMkdirSync = fs.mkdirSync;
     vi.spyOn(fs, "mkdirSync").mockImplementation(((target: fs.PathLike, options?: fs.MakeDirectoryOptions & { recursive?: boolean }) => {
@@ -33,10 +32,7 @@ describe("resolvePaperclipHomeDir", () => {
       return originalMkdirSync(target, options as any);
     }) as typeof fs.mkdirSync);
 
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
     const homePaths = await import("../home-paths.js");
-    expect(homePaths.resolvePaperclipHomeDir()).toBe(fallbackHome);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(() => homePaths.resolvePaperclipHomeDir()).toThrow("is not writable");
   });
 });
