@@ -1,9 +1,11 @@
 import os from "node:os";
 import path from "node:path";
+import fs from "node:fs";
 
 const DEFAULT_INSTANCE_ID = "default";
 const INSTANCE_ID_RE = /^[a-zA-Z0-9_-]+$/;
 const PATH_SEGMENT_RE = /^[a-zA-Z0-9_-]+$/;
+let resolvedHomeDirCache: string | undefined;
 
 function expandHomePrefix(value: string): string {
   if (value === "~") return os.homedir();
@@ -12,9 +14,29 @@ function expandHomePrefix(value: string): string {
 }
 
 export function resolvePaperclipHomeDir(): string {
+  if (resolvedHomeDirCache) return resolvedHomeDirCache;
+
   const envHome = process.env.PAPERCLIP_HOME?.trim();
-  if (envHome) return path.resolve(expandHomePrefix(envHome));
-  return path.resolve(os.homedir(), ".paperclip");
+  const preferredHome = envHome
+    ? path.resolve(expandHomePrefix(envHome))
+    : path.resolve(os.homedir(), ".paperclip");
+
+  if (!isWritableDirectory(preferredHome)) {
+    throw new Error(`Paperclip home directory '${preferredHome}' is not writable.`);
+  }
+
+  resolvedHomeDirCache = preferredHome;
+  return preferredHome;
+}
+
+function isWritableDirectory(dir: string): boolean {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function resolvePaperclipInstanceId(): string {

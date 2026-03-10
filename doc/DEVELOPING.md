@@ -76,8 +76,8 @@ docker build -t paperclip-local .
 docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
-  -e PAPERCLIP_HOME=/paperclip \
-  -v "$(pwd)/data/docker-paperclip:/paperclip" \
+  -e PAPERCLIP_HOME=/app/.paperclip \
+  -v "$(pwd)/data/docker-paperclip:/app/.paperclip" \
   paperclip-local
 ```
 
