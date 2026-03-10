@@ -9,8 +9,8 @@ docker build -t paperclip-local . && \
 docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
-  -e PAPERCLIP_HOME=/app/.paperclip \
-  -v "$(pwd)/data/docker-paperclip:/app/.paperclip" \
+  -e PAPERCLIP_HOME=/paperclip \
+  -v "$(pwd)/data/docker-paperclip:/paperclip" \
   paperclip-local
 ```
 
@@ -81,10 +81,10 @@ If you want local adapter runs inside the container, pass API keys when starting
 docker run --name paperclip \
   -p 3100:3100 \
   -e HOST=0.0.0.0 \
-  -e PAPERCLIP_HOME=/app/.paperclip \
+  -e PAPERCLIP_HOME=/paperclip \
   -e OPENAI_API_KEY=... \
   -e ANTHROPIC_API_KEY=... \
-  -v "$(pwd)/data/docker-paperclip:/app/.paperclip" \
+  -v "$(pwd)/data/docker-paperclip:/paperclip" \
   paperclip-local
 ```
 
@@ -92,6 +92,7 @@ Notes:
 
 - Without API keys, the app still runs normally.
 - Adapter environment checks in Paperclip will surface missing auth/CLI prerequisites.
+- The container entrypoint creates and `chown`s `PAPERCLIP_HOME` before starting the app, so mounted `/paperclip` volumes are writable by the `node` runtime user.
 
 ## Onboard Smoke Test (Ubuntu + npm only)
 
