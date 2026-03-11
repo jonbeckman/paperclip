@@ -6,6 +6,8 @@ import { createDb, instanceUserRoles, invites } from "@paperclipai/db";
 import { loadPaperclipEnvFile } from "../config/env.js";
 import { readConfig, resolveConfigPath } from "../config/store.js";
 
+const DEFAULT_EMBEDDED_POSTGRES_PORT = 54329;
+
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -16,16 +18,27 @@ function createInviteToken() {
 
 function resolveDbUrl(configPath?: string, explicitDbUrl?: string) {
   if (explicitDbUrl) return explicitDbUrl;
-  const config = readConfig(configPath);
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const config = readConfig(configPath);
   if (config?.database.mode === "postgres" && config.database.connectionString) {
     return config.database.connectionString;
   }
   if (config?.database.mode === "embedded-postgres") {
-    const port = config.database.embeddedPostgresPort ?? 54329;
+    const port = config.database.embeddedPostgresPort ?? DEFAULT_EMBEDDED_POSTGRES_PORT;
     return `postgres://paperclip:paperclip@127.0.0.1:${port}/paperclip`;
   }
+  if (!config) {
+    return `postgres://paperclip:paperclip@127.0.0.1:${DEFAULT_EMBEDDED_POSTGRES_PORT}/paperclip`;
+  }
   return null;
+}
+
+function resolveDeploymentMode(configPath?: string) {
+  const deploymentModeFromEnv = process.env.PAPERCLIP_DEPLOYMENT_MODE?.trim();
+  if (deploymentModeFromEnv === "authenticated" || deploymentModeFromEnv === "local_trusted") {
+    return deploymentModeFromEnv;
+  }
+  return readConfig(configPath)?.server.deploymentMode ?? "local_trusted";
 }
 
 function resolveBaseUrl(configPath?: string, explicitBaseUrl?: string) {
@@ -55,13 +68,8 @@ export async function bootstrapCeoInvite(opts: {
 }) {
   const configPath = resolveConfigPath(opts.config);
   loadPaperclipEnvFile(configPath);
-  const config = readConfig(configPath);
-  if (!config) {
-    p.log.error(`No config found at ${configPath}. Run ${pc.cyan("paperclip onboard")} first.`);
-    return;
-  }
 
-  if (config.server.deploymentMode !== "authenticated") {
+  if (resolveDeploymentMode(configPath) !== "authenticated") {
     p.log.info("Deployment mode is local_trusted. Bootstrap CEO invite is only required for authenticated mode.");
     return;
   }
