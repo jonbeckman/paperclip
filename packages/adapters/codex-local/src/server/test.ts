@@ -13,6 +13,8 @@ import {
   ensurePathInEnv,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { parseCodexJsonl } from "./parse.js";
 
@@ -24,6 +26,48 @@ function summarizeStatus(checks: AdapterEnvironmentCheck[]): AdapterEnvironmentT
 
 function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function resolveCodexHome(runtimeEnv: NodeJS.ProcessEnv): string {
+  const codexHome = runtimeEnv.CODEX_HOME?.trim();
+  if (codexHome) return codexHome;
+
+  const home = runtimeEnv.HOME?.trim() || os.homedir();
+  return path.join(home, ".codex");
+}
+
+function hasPersistedApiKey(raw: unknown): boolean {
+  if (isNonEmpty(raw)) return true;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return false;
+  return Object.values(raw).some((value) => isNonEmpty(value));
+}
+
+async function detectCodexAuthConfig(runtimeEnv: NodeJS.ProcessEnv): Promise<string | null> {
+  const authPath = path.join(resolveCodexHome(runtimeEnv), "auth.json");
+  const raw = await fs.readFile(authPath, "utf8").catch(() => null);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const authMode = isNonEmpty(parsed.auth_mode) ? parsed.auth_mode.trim().toLowerCase() : "";
+    const tokens =
+      typeof parsed.tokens === "object" && parsed.tokens !== null && !Array.isArray(parsed.tokens)
+        ? (parsed.tokens as Record<string, unknown>)
+        : {};
+
+    const hasOauthTokens = isNonEmpty(tokens.access_token) && isNonEmpty(tokens.refresh_token);
+    if (authMode === "chatgpt" && hasOauthTokens) {
+      return `Detected ChatGPT login in ${authPath}.`;
+    }
+
+    if (hasPersistedApiKey(parsed.OPENAI_API_KEY)) {
+      return `Detected saved OpenAI API key in ${authPath}.`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function firstNonEmptyLine(text: string): string {
@@ -99,6 +143,7 @@ export async function testEnvironment(
 
   const configOpenAiKey = env.OPENAI_API_KEY;
   const hostOpenAiKey = process.env.OPENAI_API_KEY;
+  const codexAuthDetail = await detectCodexAuthConfig(runtimeEnv);
   if (isNonEmpty(configOpenAiKey) || isNonEmpty(hostOpenAiKey)) {
     const source = isNonEmpty(configOpenAiKey) ? "adapter config env" : "server environment";
     checks.push({
@@ -106,6 +151,13 @@ export async function testEnvironment(
       level: "info",
       message: "OPENAI_API_KEY is set for Codex authentication.",
       detail: `Detected in ${source}.`,
+    });
+  } else if (codexAuthDetail) {
+    checks.push({
+      code: "codex_auth_config_present",
+      level: "info",
+      message: "Codex login is configured.",
+      detail: codexAuthDetail,
     });
   } else {
     checks.push({

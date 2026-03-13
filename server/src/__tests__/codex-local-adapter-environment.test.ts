@@ -7,6 +7,55 @@ import { testEnvironment } from "@paperclipai/adapter-codex-local/server";
 const itWindows = process.platform === "win32" ? it : it.skip;
 
 describe("codex_local environment diagnostics", () => {
+  it("accepts persisted ChatGPT login without requiring OPENAI_API_KEY", async () => {
+    const root = path.join(
+      os.tmpdir(),
+      `paperclip-codex-local-auth-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    );
+    const cwd = path.join(root, "workspace");
+    const codexHome = path.join(root, ".codex");
+    const originalApiKey = process.env.OPENAI_API_KEY;
+
+    try {
+      delete process.env.OPENAI_API_KEY;
+      await fs.mkdir(codexHome, { recursive: true });
+      await fs.writeFile(
+        path.join(codexHome, "auth.json"),
+        JSON.stringify({
+          auth_mode: "chatgpt",
+          tokens: {
+            access_token: "access-token",
+            refresh_token: "refresh-token",
+          },
+        }),
+        "utf8",
+      );
+
+      const result = await testEnvironment({
+        companyId: "company-1",
+        adapterType: "codex_local",
+        config: {
+          command: process.execPath,
+          cwd,
+          env: {
+            HOME: root,
+            CODEX_HOME: codexHome,
+          },
+        },
+      });
+
+      expect(result.checks.some((check) => check.code === "codex_auth_config_present")).toBe(true);
+      expect(result.checks.some((check) => check.code === "codex_openai_api_key_missing")).toBe(false);
+    } finally {
+      if (originalApiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = originalApiKey;
+      }
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("creates a missing working directory when cwd is absolute", async () => {
     const cwd = path.join(
       os.tmpdir(),
