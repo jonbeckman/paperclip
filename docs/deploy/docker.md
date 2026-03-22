@@ -53,6 +53,8 @@ The Docker image pre-installs:
 - `claude` (Anthropic Claude Code CLI)
 - `codex` (OpenAI Codex CLI)
 
+The image also bundles the repo's built-in skills plus the upstream gstack Codex skill pack under `/app/skills`, so Paperclip can inject them into local Codex runs automatically.
+
 Pass API keys to enable local adapter runs inside the container:
 
 ```sh

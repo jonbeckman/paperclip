@@ -75,6 +75,8 @@ The image pre-installs:
 - `claude` (Anthropic Claude Code CLI)
 - `codex` (OpenAI Codex CLI)
 
+The image also bundles the repo's built-in skills plus the upstream gstack Codex skill pack under `/app/skills`, so Paperclip can inject them into local Codex runs automatically.
+
 If you want local adapter runs inside the container, pass API keys when starting the container:
 
 ```sh

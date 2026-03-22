@@ -6,6 +6,26 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
+FROM oven/bun:1 AS gstack-skills
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates git \
+  && rm -rf /var/lib/apt/lists/*
+ARG GSTACK_REPO=https://github.com/garrytan/gstack.git
+ARG GSTACK_REF=main
+WORKDIR /tmp
+RUN git clone --depth 1 --branch "${GSTACK_REF}" "${GSTACK_REPO}" gstack \
+  && cd gstack \
+  && bun install \
+  && bun run build \
+  && cd /tmp \
+  && rm -rf gstack/.git \
+  && rm -rf gstack/node_modules \
+  && mkdir -p /gstack-packaged \
+  && cp -R gstack /gstack-packaged/gstack \
+  && cp gstack/.agents/skills/gstack/SKILL.md /gstack-packaged/gstack/SKILL.md \
+  && find gstack/.agents/skills -mindepth 1 -maxdepth 1 -type d -name 'gstack*' ! -name 'gstack' \
+    -exec cp -R {} /gstack-packaged/ \;
+
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
@@ -38,6 +58,7 @@ RUN pnpm --filter @paperclipai/plugin-sdk build
 FROM base AS production
 WORKDIR /app
 COPY --chown=node:node --from=build /app /app
+COPY --chown=node:node --from=gstack-skills /gstack-packaged/ /app/skills/
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
